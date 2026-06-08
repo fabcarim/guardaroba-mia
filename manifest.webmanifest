@@ -1,0 +1,13 @@
+{
+  "name": "Guardaroba di Mia",
+  "short_name": "Guardaroba",
+  "description": "Cataloga i vestiti con foto e riconoscimento automatico AI.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f3f9",
+  "theme_color": "#6b4f8a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,7 @@
+# Backup dei dati (contengono le foto, restano su Drive, non su GitHub)
+guardaroba-backup-*.json
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini

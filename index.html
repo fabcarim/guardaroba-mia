@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#6b4f8a" />
+  <title>Guardaroba di Mia</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>👗 Guardaroba di Mia</h1>
+    <span id="counter" class="counter"></span>
+  </header>
+
+  <!-- ===== VISTA: AGGIUNGI (bulk + singolo) ===== -->
+  <main id="view-aggiungi" class="view active">
+    <div class="hero">
+      <h2>Aggiungi vestiti</h2>
+      <p class="muted">Scatta o carica le foto. Puoi caricarne tante insieme (bulk) la prima volta, poi una alla volta.</p>
+      <label class="btn btn-primary big">
+        📷 Scatta / Carica foto
+        <input id="file-input" type="file" accept="image/*" multiple hidden />
+      </label>
+      <p class="muted small">Le foto vengono ridotte automaticamente per occupare poco spazio. Gli originali restano dove sono (es. la cartella Drive).</p>
+    </div>
+  </main>
+
+  <!-- ===== VISTA: DA CATALOGARE (coda, uno a uno) ===== -->
+  <main id="view-coda" class="view">
+    <div id="coda-vuota" class="empty">
+      <p>Niente da catalogare. 🎉</p>
+      <p class="muted">Aggiungi foto dalla scheda «Aggiungi».</p>
+    </div>
+
+    <div id="coda-card" class="card" hidden>
+      <div class="card-photo">
+        <img id="coda-img" alt="capo da catalogare" />
+        <span id="coda-progress" class="badge"></span>
+      </div>
+
+      <button id="btn-ai" class="btn btn-ai">✨ Analizza con l'AI</button>
+      <p id="ai-status" class="muted small" aria-live="polite"></p>
+
+      <form id="coda-form" class="form">
+        <label>Categoria
+          <select id="f-categoria" name="categoria"></select>
+        </label>
+        <label>Sottocategoria / tipo
+          <input id="f-tipo" name="tipo" placeholder="es. maglione a collo alto" />
+        </label>
+        <label>Colore principale
+          <input id="f-colore" name="colore" placeholder="es. blu navy" />
+        </label>
+        <label>Stagione
+          <select id="f-stagione" name="stagione"></select>
+        </label>
+        <label>Materiale (ipotesi)
+          <input id="f-materiale" name="materiale" placeholder="es. cotone" />
+        </label>
+        <label>Note / descrizione
+          <textarea id="f-note" name="note" rows="2" placeholder="dettagli, brand, dove si abbina..."></textarea>
+        </label>
+        <label>Tag (separati da virgola)
+          <input id="f-tags" name="tags" placeholder="es. elegante, lavoro, estate" />
+        </label>
+
+        <div class="row">
+          <button type="button" id="btn-skip" class="btn">Salta per ora</button>
+          <button type="submit" class="btn btn-primary">✔ Salva nel guardaroba</button>
+        </div>
+        <button type="button" id="btn-elimina" class="btn btn-danger small">🗑 Elimina questa foto</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ===== VISTA: GUARDAROBA ===== -->
+  <main id="view-guardaroba" class="view">
+    <div class="filters">
+      <input id="search" type="search" placeholder="🔎 Cerca (colore, tipo, tag...)" />
+      <select id="filter-cat"><option value="">Tutte le categorie</option></select>
+      <select id="filter-sta"><option value="">Tutte le stagioni</option></select>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="guardaroba-vuoto" class="empty">
+      <p>Il guardaroba è vuoto.</p>
+      <p class="muted">Cataloga i capi dalla scheda «Da catalogare».</p>
+    </div>
+  </main>
+
+  <!-- ===== VISTA: IMPOSTAZIONI ===== -->
+  <main id="view-impostazioni" class="view">
+    <h2>Impostazioni</h2>
+
+    <section class="settings-block">
+      <h3>🔑 Chiave AI (Anthropic / Claude)</h3>
+      <p class="muted small">Serve per il riconoscimento automatico. La chiave resta <strong>solo su questo dispositivo</strong>, non viene inviata a nessun server tranne Anthropic. Ottienila su console.anthropic.com.</p>
+      <label>API key
+        <input id="set-apikey" type="password" placeholder="sk-ant-..." />
+      </label>
+      <label>Modello
+        <select id="set-model">
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5 — economico (consigliato)</option>
+          <option value="claude-sonnet-4-6">Sonnet 4.6 — più accurato</option>
+        </select>
+      </label>
+      <button id="btn-save-settings" class="btn btn-primary">Salva impostazioni</button>
+      <span id="settings-saved" class="muted small"></span>
+    </section>
+
+    <section class="settings-block">
+      <h3>💾 Backup su Drive</h3>
+      <p class="muted small">Esporta tutto (capi + foto ridotte) in un unico file da salvare nella cartella <code>vestiti</code> su Google Drive. Per ripristinare su un altro dispositivo, importa lo stesso file.</p>
+      <div class="row">
+        <button id="btn-export" class="btn btn-primary">⬇ Esporta backup</button>
+        <label class="btn">⬆ Importa backup
+          <input id="import-input" type="file" accept="application/json" hidden />
+        </label>
+      </div>
+      <span id="backup-status" class="muted small"></span>
+    </section>
+
+    <section class="settings-block">
+      <h3>ℹ️ Info</h3>
+      <p class="muted small">Guardaroba di Mia — funziona offline una volta aperta. I dati sono salvati nel browser di questo dispositivo. Fai backup regolari su Drive.</p>
+    </section>
+  </main>
+
+  <!-- ===== NAV ===== -->
+  <nav class="tabbar">
+    <button data-view="aggiungi" class="tab active">➕<span>Aggiungi</span></button>
+    <button data-view="coda" class="tab">📋<span>Da catalogare</span></button>
+    <button data-view="guardaroba" class="tab">👚<span>Guardaroba</span></button>
+    <button data-view="impostazioni" class="tab">⚙️<span>Impostazioni</span></button>
+  </nav>
+
+  <!-- Modal dettaglio capo -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-content">
+      <button id="modal-close" class="modal-close">✕</button>
+      <img id="modal-img" alt="capo" />
+      <div id="modal-info"></div>
+      <button id="modal-delete" class="btn btn-danger">🗑 Elimina capo</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
