@@ -48,7 +48,6 @@ body{
 }
 .btn:active{transform:scale(.98)}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-ai{background:linear-gradient(135deg,#7e57c2,#b388ff);color:#fff;width:100%;margin:10px 0}
 .btn-danger{background:transparent;color:var(--danger);border:1px solid #e7c4bf}
 .btn.big{font-size:1.15rem;padding:18px 24px;width:100%;max-width:320px;margin:14px auto;display:flex}
 
@@ -59,8 +58,13 @@ body{
 .badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;
   padding:4px 10px;border-radius:20px;font-size:.78rem}
 
+/* Stato analisi AI */
+.ai-status{margin:10px 0;font-size:.9rem;min-height:1.2em;text-align:center;color:var(--accent)}
+.ai-status.loading{color:var(--accent-2)}
+.ai-status.error{color:var(--danger)}
+
 /* Form */
-.form{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.form{display:flex;flex-direction:column;gap:10px;margin-top:4px}
 .form label{display:flex;flex-direction:column;font-size:.8rem;color:var(--muted);gap:4px}
 .form input,.form select,.form textarea{
   font-size:1rem;color:var(--ink);padding:10px;border:1px solid #e3dcec;
@@ -69,6 +73,26 @@ body{
 .form input:focus,.form select:focus,.form textarea:focus{outline:2px solid var(--accent-2);border-color:transparent}
 .row{display:flex;gap:10px}
 .row .btn{flex:1}
+.row .btn-primary{flex:2}
+
+/* "+ Altri dettagli" a scomparsa */
+.more{border:1px solid #eadff2;border-radius:10px;padding:0 12px}
+.more summary{cursor:pointer;padding:10px 0;color:var(--accent);font-size:.9rem;list-style:none}
+.more summary::-webkit-details-marker{display:none}
+.more[open]{padding-bottom:8px}
+
+/* Link secondari (ri-analizza / elimina) */
+.row-mini{display:flex;justify-content:center;gap:18px;margin-top:6px}
+.btn-link{background:none;border:none;color:var(--muted);font-size:.85rem;cursor:pointer;padding:6px}
+.btn-link.danger{color:var(--danger)}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);
+  background:#2a2330;color:#fff;padding:12px 20px;border-radius:24px;font-size:.92rem;
+  box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:60;max-width:90%;text-align:center;
+  opacity:0;transition:opacity .25s,transform .25s}
+.toast[hidden]{display:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
 /* Empty states */
 .empty{text-align:center;padding:48px 16px;color:var(--ink)}

@@ -96,7 +96,8 @@ $("#file-input").addEventListener("change", async (e) => {
   }
   e.target.value = "";
   updateCounter();
-  alert(`${added} foto aggiunte. Vai su «Da catalogare» per descriverle una a una.`);
+  codaIndex = 0;
+  toast(`${added} foto aggiunte ✨`);
   showView("coda");
 });
 
@@ -113,7 +114,6 @@ function renderCoda() {
   card.dataset.id = capo.id;
   $("#coda-img").src = capo.img;
   $("#coda-progress").textContent = `${codaIndex + 1} / ${lista.length}`;
-  $("#ai-status").textContent = "";
   // popola form con eventuali valori già presenti
   $("#f-categoria").value = capo.categoria || "";
   $("#f-tipo").value = capo.tipo || "";
@@ -122,6 +122,22 @@ function renderCoda() {
   $("#f-materiale").value = capo.materiale || "";
   $("#f-note").value = capo.note || "";
   $("#f-tags").value = (capo.tags || []).join(", ");
+
+  // Analisi automatica: parte da sola se c'è la chiave e non è già stata fatta
+  const key = localStorage.getItem("apikey");
+  if (key && !capo.aiDone) {
+    runAI(capo);
+  } else if (!key) {
+    setAiStatus("Imposta la chiave AI in ⚙️ per la compilazione automatica.", "");
+  } else {
+    setAiStatus("✅ Già analizzato — controlla e salva.", "");
+  }
+}
+
+function setAiStatus(text, cls) {
+  const el = $("#ai-status");
+  el.textContent = text;
+  el.className = "ai-status" + (cls ? " " + cls : "");
 }
 
 function currentCapo() {
@@ -143,6 +159,7 @@ $("#coda-form").addEventListener("submit", async (e) => {
   capo.aggiornato = new Date().toISOString();
   await putCapo(capo);
   updateCounter();
+  toast("Salvato ✓");
   renderCoda();
 });
 
@@ -158,31 +175,53 @@ $("#btn-elimina").addEventListener("click", async () => {
 });
 
 /* ---------- AI: riconoscimento capo ---------- */
-$("#btn-ai").addEventListener("click", async () => {
+// Bottone "Ri-analizza": forza una nuova analisi sul capo corrente
+$("#btn-ai").addEventListener("click", () => {
   const capo = currentCapo(); if (!capo) return;
   const key = localStorage.getItem("apikey");
+  if (!key) { toast("Imposta prima la chiave AI in ⚙️"); showView("impostazioni"); return; }
+  runAI(capo, true);
+});
+
+// Esegue l'analisi e compila i campi. Auto-chiamata all'apertura del capo.
+async function runAI(capo, force = false) {
+  const key = localStorage.getItem("apikey");
   const model = localStorage.getItem("model") || "claude-haiku-4-5-20251001";
-  if (!key) { alert("Imposta prima la chiave AI in «Impostazioni»."); showView("impostazioni"); return; }
-  const status = $("#ai-status");
-  status.textContent = "✨ Analizzo la foto...";
+  if (!key) return;
+  if (capo.aiDone && !force) return;
+  setAiStatus("✨ Analizzo la foto…", "loading");
   $("#btn-ai").disabled = true;
   try {
     const result = await analizzaConAI(capo.img, key, model);
-    if (result.categoria && CATEGORIE.includes(result.categoria)) $("#f-categoria").value = result.categoria;
-    if (result.tipo) $("#f-tipo").value = result.tipo;
-    if (result.colore) $("#f-colore").value = result.colore;
-    if (result.stagione && STAGIONI.includes(result.stagione)) $("#f-stagione").value = result.stagione;
-    if (result.materiale) $("#f-materiale").value = result.materiale;
-    if (result.descrizione) $("#f-note").value = result.descrizione;
-    if (result.tags && result.tags.length) $("#f-tags").value = result.tags.join(", ");
-    status.textContent = "✅ Fatto! Controlla e correggi se serve, poi salva.";
+    // applica i suggerimenti al capo (li salviamo come bozza)
+    if (result.categoria && CATEGORIE.includes(result.categoria)) capo.categoria = result.categoria;
+    if (result.tipo) capo.tipo = result.tipo;
+    if (result.colore) capo.colore = result.colore;
+    if (result.stagione && STAGIONI.includes(result.stagione)) capo.stagione = result.stagione;
+    if (result.materiale) capo.materiale = result.materiale;
+    if (result.descrizione) capo.note = result.descrizione;
+    if (result.tags && result.tags.length) capo.tags = result.tags;
+    capo.aiDone = true;
+    await putCapo(capo);
+    // aggiorna i campi solo se siamo ancora su questo capo
+    if (currentCapo() && currentCapo().id === capo.id) {
+      $("#f-categoria").value = capo.categoria || "";
+      $("#f-tipo").value = capo.tipo || "";
+      $("#f-colore").value = capo.colore || "";
+      $("#f-stagione").value = capo.stagione || STAGIONI[0];
+      $("#f-materiale").value = capo.materiale || "";
+      $("#f-note").value = capo.note || "";
+      $("#f-tags").value = (capo.tags || []).join(", ");
+      setAiStatus("✅ Compilato! Controlla e salva.", "");
+    }
   } catch (err) {
     console.error(err);
-    status.textContent = "⚠️ Errore: " + err.message;
+    if (currentCapo() && currentCapo().id === capo.id)
+      setAiStatus("⚠️ " + err.message + " (puoi compilare a mano)", "error");
   } finally {
     $("#btn-ai").disabled = false;
   }
-});
+}
 
 async function analizzaConAI(dataUrl, key, model) {
   const base64 = dataUrl.split(",")[1];
@@ -322,6 +361,19 @@ $("#import-input").addEventListener("change", async (e) => {
 });
 
 /* ---------- Helpers ---------- */
+let toastTimer;
+function toast(msg) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add("show"));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => { el.hidden = true; }, 250);
+  }, 2200);
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 }

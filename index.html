@@ -42,8 +42,7 @@
         <span id="coda-progress" class="badge"></span>
       </div>
 
-      <button id="btn-ai" class="btn btn-ai">✨ Analizza con l'AI</button>
-      <p id="ai-status" class="muted small" aria-live="polite"></p>
+      <p id="ai-status" class="ai-status" aria-live="polite"></p>
 
       <form id="coda-form" class="form">
         <label>Categoria
@@ -58,21 +57,28 @@
         <label>Stagione
           <select id="f-stagione" name="stagione"></select>
         </label>
-        <label>Materiale (ipotesi)
-          <input id="f-materiale" name="materiale" placeholder="es. cotone" />
-        </label>
-        <label>Note / descrizione
-          <textarea id="f-note" name="note" rows="2" placeholder="dettagli, brand, dove si abbina..."></textarea>
-        </label>
-        <label>Tag (separati da virgola)
-          <input id="f-tags" name="tags" placeholder="es. elegante, lavoro, estate" />
-        </label>
+
+        <details class="more">
+          <summary>+ Altri dettagli</summary>
+          <label>Materiale (ipotesi)
+            <input id="f-materiale" name="materiale" placeholder="es. cotone" />
+          </label>
+          <label>Note / descrizione
+            <textarea id="f-note" name="note" rows="2" placeholder="dettagli, brand, dove si abbina..."></textarea>
+          </label>
+          <label>Tag (separati da virgola)
+            <input id="f-tags" name="tags" placeholder="es. elegante, lavoro, estate" />
+          </label>
+        </details>
 
         <div class="row">
-          <button type="button" id="btn-skip" class="btn">Salta per ora</button>
-          <button type="submit" class="btn btn-primary">✔ Salva nel guardaroba</button>
+          <button type="button" id="btn-skip" class="btn">Salta</button>
+          <button type="submit" class="btn btn-primary">✔ Salva</button>
         </div>
-        <button type="button" id="btn-elimina" class="btn btn-danger small">🗑 Elimina questa foto</button>
+        <div class="row-mini">
+          <button type="button" id="btn-ai" class="btn-link">✨ Ri-analizza</button>
+          <button type="button" id="btn-elimina" class="btn-link danger">🗑 Elimina</button>
+        </div>
       </form>
     </div>
   </main>
@@ -146,6 +152,8 @@
       <button id="modal-delete" class="btn btn-danger">🗑 Elimina capo</button>
     </div>
   </div>
+
+  <div id="toast" class="toast" hidden></div>
 
   <script src="app.js"></script>
 </body>
