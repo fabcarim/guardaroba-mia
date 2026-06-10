@@ -65,6 +65,25 @@ function resizeImage(file, maxSide = 1024, quality = 0.8) {
   });
 }
 
+// Versione compatta SOLO per l'AI (meno pixel = molti meno token = meno costo).
+// 512px bastano per riconoscere il capo; la foto a piena risoluzione resta salvata.
+function base64PerAI(dataUrl, maxSide = 512, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > maxSide) { height = Math.round(height * maxSide / width); width = maxSide; }
+      else if (height > maxSide) { width = Math.round(width * maxSide / height); height = maxSide; }
+      const c = document.createElement("canvas");
+      c.width = width; c.height = height;
+      c.getContext("2d").drawImage(img, 0, 0, width, height);
+      resolve(c.toDataURL("image/jpeg", quality).split(",")[1]);
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
 /* ---------- Navigazione ---------- */
 function showView(name) {
   $$(".view").forEach(v => v.classList.remove("active"));
@@ -145,9 +164,8 @@ function currentCapo() {
   return capi.find(c => c.id === id);
 }
 
-$("#coda-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const capo = currentCapo(); if (!capo) return;
+// Copia i valori del form dentro il capo (senza cambiarne lo stato)
+function leggiFormNelCapo(capo) {
   capo.categoria = $("#f-categoria").value;
   capo.tipo = $("#f-tipo").value.trim();
   capo.colore = $("#f-colore").value.trim();
@@ -155,23 +173,32 @@ $("#coda-form").addEventListener("submit", async (e) => {
   capo.materiale = $("#f-materiale").value.trim();
   capo.note = $("#f-note").value.trim();
   capo.tags = $("#f-tags").value.split(",").map(t => t.trim()).filter(Boolean);
+}
+
+$("#coda-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const capo = currentCapo(); if (!capo) return;
+  leggiFormNelCapo(capo);
   capo.stato = "catalogato";
   capo.aggiornato = new Date().toISOString();
   await putCapo(capo);
   updateCounter();
+  buzz();
   toast("Salvato ✓");
   renderCoda();
 });
 
-$("#btn-skip").addEventListener("click", () => { codaIndex++; renderCoda(); });
-
-$("#btn-elimina").addEventListener("click", async () => {
-  const capo = currentCapo(); if (!capo) return;
-  if (!confirm("Eliminare questa foto?")) return;
-  await delCapo(capo.id);
-  capi = capi.filter(c => c.id !== capo.id);
-  updateCounter();
+// "Salta": non perde le modifiche manuali, le salva nella bozza
+$("#btn-skip").addEventListener("click", async () => {
+  const capo = currentCapo();
+  if (capo) { leggiFormNelCapo(capo); await putCapo(capo); }
+  codaIndex++;
   renderCoda();
+});
+
+$("#btn-elimina").addEventListener("click", () => {
+  const capo = currentCapo(); if (!capo) return;
+  eliminaCapo(capo, renderCoda);
 });
 
 /* ---------- AI: riconoscimento capo ---------- */
@@ -192,15 +219,18 @@ async function runAI(capo, force = false) {
   setAiStatus("✨ Analizzo la foto…", "loading");
   $("#btn-ai").disabled = true;
   try {
+    // leggo prima ciò che è già nel form, per non cancellare il lavoro manuale
+    leggiFormNelCapo(capo);
     const result = await analizzaConAI(capo.img, key, model);
-    // applica i suggerimenti al capo (li salviamo come bozza)
-    if (result.categoria && CATEGORIE.includes(result.categoria)) capo.categoria = result.categoria;
-    if (result.tipo) capo.tipo = result.tipo;
-    if (result.colore) capo.colore = result.colore;
-    if (result.stagione && STAGIONI.includes(result.stagione)) capo.stagione = result.stagione;
-    if (result.materiale) capo.materiale = result.materiale;
-    if (result.descrizione) capo.note = result.descrizione;
-    if (result.tags && result.tags.length) capo.tags = result.tags;
+    // riempie solo i campi vuoti; con "force" (Ri-analizza) sovrascrive tutto
+    const set = (cur, val) => (force || !cur) && val ? val : cur;
+    if (result.categoria && CATEGORIE.includes(result.categoria)) capo.categoria = set(capo.categoria, result.categoria);
+    capo.tipo = set(capo.tipo, result.tipo);
+    capo.colore = set(capo.colore, result.colore);
+    if (result.stagione && STAGIONI.includes(result.stagione)) capo.stagione = set(capo.stagione, result.stagione);
+    capo.materiale = set(capo.materiale, result.materiale);
+    capo.note = set(capo.note, result.descrizione);
+    if (force || !(capo.tags || []).length) if (result.tags && result.tags.length) capo.tags = result.tags;
     capo.aiDone = true;
     await putCapo(capo);
     // aggiorna i campi solo se siamo ancora su questo capo
@@ -213,6 +243,7 @@ async function runAI(capo, force = false) {
       $("#f-note").value = capo.note || "";
       $("#f-tags").value = (capo.tags || []).join(", ");
       setAiStatus("✅ Compilato! Controlla e salva.", "");
+      buzz();
     }
   } catch (err) {
     console.error(err);
@@ -224,17 +255,9 @@ async function runAI(capo, force = false) {
 }
 
 async function analizzaConAI(dataUrl, key, model) {
-  const base64 = dataUrl.split(",")[1];
-  const prompt = `Sei un assistente per catalogare un guardaroba. Analizza il capo di abbigliamento nella foto e rispondi SOLO con un oggetto JSON valido (nessun testo prima o dopo) con questi campi:
-{
-  "categoria": una tra ${JSON.stringify(CATEGORIE)},
-  "tipo": "descrizione breve del tipo, es. 'maglione a collo alto'",
-  "colore": "colore principale in italiano",
-  "stagione": una tra ${JSON.stringify(STAGIONI)},
-  "materiale": "ipotesi materiale, es. 'cotone'",
-  "descrizione": "una frase descrittiva",
-  "tags": ["3-5 tag utili in italiano, es. elegante, lavoro"]
-}`;
+  const base64 = await base64PerAI(dataUrl);
+  const prompt = `Cataloga il capo in foto. Rispondi SOLO con JSON valido, in italiano:
+{"categoria": una tra ${JSON.stringify(CATEGORIE)}, "tipo":"tipo breve, es. maglione collo alto", "colore":"colore principale", "stagione": una tra ${JSON.stringify(STAGIONI)}, "materiale":"ipotesi, es. cotone", "descrizione":"una frase", "tags":["3 tag, es. elegante, lavoro"]}`;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -245,7 +268,7 @@ async function analizzaConAI(dataUrl, key, model) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 500,
+      max_tokens: 320,
       messages: [{
         role: "user",
         content: [
@@ -310,12 +333,9 @@ function openModal(c) {
       <dt>Tag</dt><dd>${escapeHtml((c.tags || []).join(", ") || "—")}</dd>
     </dl>`;
   $("#modal").hidden = false;
-  $("#modal-delete").onclick = async () => {
-    if (!confirm("Eliminare questo capo dal guardaroba?")) return;
-    await delCapo(c.id);
-    capi = capi.filter(x => x.id !== c.id);
+  $("#modal-delete").onclick = () => {
     $("#modal").hidden = true;
-    updateCounter(); renderGuardaroba();
+    eliminaCapo(c, renderGuardaroba);
   };
 }
 $("#modal-close").addEventListener("click", () => { $("#modal").hidden = true; });
@@ -362,16 +382,45 @@ $("#import-input").addEventListener("change", async (e) => {
 
 /* ---------- Helpers ---------- */
 let toastTimer;
-function toast(msg) {
+function toast(msg, actionLabel, actionFn, durata = 2200) {
   const el = $("#toast");
-  el.textContent = msg;
+  el.innerHTML = "";
+  const span = document.createElement("span");
+  span.textContent = msg;
+  el.appendChild(span);
+  if (actionLabel && actionFn) {
+    const btn = document.createElement("button");
+    btn.className = "toast-action";
+    btn.textContent = actionLabel;
+    btn.onclick = () => { clearTimeout(toastTimer); hideToast(); actionFn(); };
+    el.appendChild(btn);
+  }
   el.hidden = false;
   requestAnimationFrame(() => el.classList.add("show"));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    el.classList.remove("show");
-    setTimeout(() => { el.hidden = true; }, 250);
-  }, 2200);
+  toastTimer = setTimeout(hideToast, durata);
+}
+function hideToast() {
+  const el = $("#toast");
+  el.classList.remove("show");
+  setTimeout(() => { el.hidden = true; }, 250);
+}
+
+// Vibrazione leggera di conferma (solo dove supportata, es. Android)
+function buzz(ms = 15) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+// Elimina con possibilità di annullare (niente popup di conferma)
+async function eliminaCapo(capo, dopo) {
+  await delCapo(capo.id);
+  capi = capi.filter(c => c.id !== capo.id);
+  updateCounter();
+  dopo && dopo();
+  toast("Eliminato", "Annulla", async () => {
+    await putCapo(capo);
+    capi.push(capo);
+    updateCounter();
+    dopo && dopo();
+  }, 4500);
 }
 
 function escapeHtml(s) {

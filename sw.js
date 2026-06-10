@@ -1,5 +1,5 @@
 /* Service worker: cache statica per uso offline */
-const CACHE = "guardaroba-v2";
+const CACHE = "guardaroba-v3";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js",
   "./manifest.webmanifest", "./icon.svg"

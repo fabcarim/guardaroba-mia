@@ -93,6 +93,8 @@ body{
   opacity:0;transition:opacity .25s,transform .25s}
 .toast[hidden]{display:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+.toast{display:flex;align-items:center;gap:14px;justify-content:center}
+.toast-action{background:none;border:none;color:#c9a8ff;font-weight:700;font-size:.92rem;cursor:pointer;padding:4px 2px}
 
 /* Empty states */
 .empty{text-align:center;padding:48px 16px;color:var(--ink)}
